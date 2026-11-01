@@ -56,7 +56,10 @@
             required
           >
 
-          <button id="submit-button" type="submit">Estimar corrida</button>
+          <div class="form-actions">
+            <button id="submit-button" type="submit">Estimar corrida</button>
+            <button id="reset-button" type="reset" class="secondary">Limpar</button>
+          </div>
         </form>
 
         <p id="status" class="status" role="status" aria-live="polite"></p>
@@ -97,5 +100,28 @@
         </section>
       </section>
     </main>
+
+    <div id="loading-modal" class="modal-backdrop" hidden>
+      <div
+        class="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="loading-title"
+        aria-describedby="loading-text"
+      >
+        <div class="road" aria-hidden="true">
+          <span class="rider">🚲</span>
+        </div>
+        <h2 id="loading-title">Calculando sua corrida</h2>
+        <p id="loading-text" class="modal-text" role="status" aria-live="polite"></p>
+        <ol id="loading-steps" class="loading-steps">
+          <li data-step="0">Localizando os endereços</li>
+          <li data-step="1">Calculando a distância</li>
+          <li data-step="2">Estimando duração e preço</li>
+        </ol>
+        <div class="progress" aria-hidden="true"><span></span></div>
+        <button id="cancel-button" type="button" class="secondary">Cancelar</button>
+      </div>
+    </div>
   </body>
 </html>
