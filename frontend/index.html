@@ -2,12 +2,13 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta
       name="description"
-      content="Estime a duração e o preço de uma corrida de Bicitaxi."
+      content="Estime a duração e o preço do seu frete com a Master Frete."
     >
-    <title>Bicitaxi | Estime sua corrida</title>
+    <title>Master Frete | Estime seu frete</title>
+    <link rel="icon" type="image/jpeg" href="/assets/image/truck_logo.jpg">
     <link
       rel="stylesheet"
       href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -25,10 +26,23 @@
   <body>
     <main class="page">
       <section class="card" aria-labelledby="page-title">
-        <p class="eyebrow">Mobilidade urbana</p>
-        <h1 id="page-title">Sua próxima corrida, sem surpresas.</h1>
+        <header class="brand">
+          <img
+            class="brand-logo"
+            src="/assets/image/truck_logo.jpg"
+            alt="Logomarca Master Frete: caminhão de entregas 24h"
+            width="96"
+            height="73"
+          >
+          <div>
+            <p class="brand-name">Master <span>Frete</span></p>
+            <p class="brand-tagline">Fretes rápidos e transparentes</p>
+          </div>
+        </header>
+        <p class="eyebrow">Estimativa de frete</p>
+        <h1 id="page-title">Seu próximo frete, sem surpresas.</h1>
         <p class="intro">
-          Informe os endereços para estimar sua viagem de Bicitaxi.
+          Informe os endereços para estimar a duração e o preço do seu frete.
         </p>
 
         <form id="ride-form">
@@ -57,7 +71,7 @@
           >
 
           <div class="form-actions">
-            <button id="submit-button" type="submit">Estimar corrida</button>
+            <button id="submit-button" type="submit">Estimar frete</button>
             <button id="reset-button" type="reset" class="secondary">Limpar</button>
           </div>
         </form>
@@ -65,18 +79,18 @@
         <p id="status" class="status" role="status" aria-live="polite"></p>
 
         <section id="results" class="results" aria-labelledby="results-title" hidden>
-          <h2 id="results-title">Estimativa da corrida</h2>
+          <h2 id="results-title">Estimativa do frete</h2>
           <p id="route-summary" class="route-summary"></p>
           <div
             id="ride-map"
             class="ride-map"
             role="region"
-            aria-label="Mapa com a origem e o destino da corrida"
+            aria-label="Mapa com a origem e o destino do frete"
           ></div>
           <p id="map-status" class="map-status" role="status" aria-live="polite"></p>
           <p class="map-caption">
-            O = origem · D = destino. A linha é ilustrativa, não uma rota
-            ciclável.
+            🚚 = origem · D = destino. A linha é ilustrativa, não uma rota
+                        viária.
           </p>
           <dl>
             <div class="result-row">
@@ -101,6 +115,8 @@
       </section>
     </main>
 
+    <footer class="site-footer">Desenvolvido por E. Cadiz | 2026</footer>
+
     <div id="loading-modal" class="modal-backdrop" hidden>
       <div
         class="modal"
@@ -110,9 +126,9 @@
         aria-describedby="loading-text"
       >
         <div class="road" aria-hidden="true">
-          <span class="rider">🚲</span>
+          <span class="rider">🚚</span>
         </div>
-        <h2 id="loading-title">Calculando sua corrida</h2>
+        <h2 id="loading-title">Calculando seu frete</h2>
         <p id="loading-text" class="modal-text" role="status" aria-live="polite"></p>
         <ol id="loading-steps" class="loading-steps">
           <li data-step="0">Localizando os endereços</li>

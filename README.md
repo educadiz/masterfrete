@@ -1,6 +1,6 @@
-# Bicitaxi
+# Master Frete
 
-Aplicação local para estimar corridas com HTML, CSS e JavaScript puros no
+Aplicação local para estimar fretes com HTML, CSS e JavaScript puros no
 frontend e Node.js/Express no backend.
 
 ## Arquitetura
@@ -49,7 +49,7 @@ estimativa seja solicitada.
 ## Nominatim
 
 A aplicação usa o serviço público de busca do Nominatim com identificador
-`Bicitaxi/1.0`, mantém resultados geocodificados em cache na memória e serializa
+`MasterFrete/1.0`, mantém resultados geocodificados em cache na memória e serializa
 as chamadas para limitar a frequência a no máximo uma por segundo. O cache é
 reiniciado quando o backend para.
 

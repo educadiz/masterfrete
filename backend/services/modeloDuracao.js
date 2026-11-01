@@ -1,26 +1,75 @@
 const { DURATION_ENDPOINT, getToken } = require("../config/databricks");
 const {
+  FUSO_HORARIO,
+  MAPEAMENTO_DIAS_SEMANA
+} = require("../config/codificacaoModeloPreco");
+const {
   registrarRequisicaoModelo,
   registrarRespostaModelo
 } = require("../utils/depuracao");
 
-async function estimarDuracao(origin, destination, distanceKm) {
+// dia_semana segue a codificação confirmada: Domingo = 1 ... Sábado = 7.
+function obterCamposTemporaisDuracao(dataHora) {
+  if (!(dataHora instanceof Date) || Number.isNaN(dataHora.getTime())) {
+    throw new TypeError("A data/hora da solicitação é inválida.");
+  }
+
+  const valores = Object.fromEntries(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: FUSO_HORARIO,
+      weekday: "long",
+      year: "numeric",
+      month: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hourCycle: "h23"
+    })
+      .formatToParts(dataHora)
+      .map(({ type, value }) => [type, value])
+  );
+
+  return {
+    ano: Number(valores.year),
+    mes: Number(valores.month),
+    hora: Number(valores.hour),
+    minuto: Number(valores.minute),
+    dia_semana: MAPEAMENTO_DIAS_SEMANA[valores.weekday]
+  };
+}
+
+async function estimarDuracao(
+  origin,
+  destination,
+  distanceKm,
+  dataHora = new Date()
+) {
+  const temporal = obterCamposTemporaisDuracao(dataHora);
   const payload = {
     dataframe_split: {
       columns: [
+        "ano",
+        "mes",
+        "hora",
+        "minuto",
         "latitude_origem",
         "longitude_origem",
         "latitude_destino",
         "longitude_destino",
-        "distancia_haversine"
+        "distancia_haversine",
+        "dia_semana"
       ],
       data: [
         [
+          temporal.ano,
+          temporal.mes,
+          temporal.hora,
+          temporal.minuto,
           origin.latitude,
           origin.longitude,
           destination.latitude,
           destination.longitude,
-          distanceKm
+          distanceKm,
+          temporal.dia_semana
         ]
       ]
     }
@@ -76,4 +125,4 @@ async function parseResponse(response, nomeModelo) {
   return body;
 }
 
-module.exports = { estimarDuracao, parseResponse };
+module.exports = { estimarDuracao, obterCamposTemporaisDuracao, parseResponse };

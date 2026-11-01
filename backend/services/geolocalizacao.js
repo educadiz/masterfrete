@@ -1,6 +1,6 @@
 const NOMINATIM_SEARCH_URL =
   "https://nominatim.openstreetmap.org/search";
-const USER_AGENT = "Bicitaxi/1.0 (local ride estimation app)";
+const USER_AGENT = "MasterFrete/1.0 (local freight estimation app)";
 const CACHE_LIMIT = 500;
 const geocodeCache = new Map();
 

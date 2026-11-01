@@ -101,7 +101,7 @@ form.addEventListener("submit", async (event) => {
 
     const body = await response.json();
     if (!response.ok) {
-      throw new Error(body.error || "Não foi possível estimar a corrida.");
+      throw new Error(body.error || "Não foi possível estimar o frete.");
     }
 
     routeSummary.textContent = `${body.origem} → ${body.destino}`;
@@ -183,7 +183,7 @@ function renderMap(ride) {
     .bindPopup(`<strong>Destino</strong><br>${escapeHtml(ride.destino)}`)
     .addTo(routeLayer);
   window.L.polyline([origin, destination], {
-    color: "#287c4a",
+    color: "#1e5fb4",
     weight: 4,
     opacity: 0.8,
     dashArray: "8 8"
@@ -194,10 +194,15 @@ function renderMap(ride) {
   mapStatus.textContent = "";
 }
 
+const TRUCK_SVG =
+  '<svg viewBox="0 0 24 24" width="20" height="20" fill="#fff" aria-hidden="true">' +
+  '<path d="M1 5a1 1 0 0 1 1-1h11a1 1 0 0 1 1 1v2h3.4a1 1 0 0 1 .8.4l3 4a1 1 0 0 1 .2.6V17a1 1 0 0 1-1 1h-1.1a3 3 0 0 1-5.8 0H9.9a3 3 0 0 1-5.8 0H3a1 1 0 0 1-1-1V5zm13 4v3h5.5L17.3 9H14zM7 16a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm10 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z"/>' +
+  "</svg>";
+
 function createMapIcon(label, location) {
   return window.L.divIcon({
     className: `map-marker-icon map-marker-${location}`,
-    html: `<span>${label}</span>`,
+    html: `<span>${location === "origem" ? TRUCK_SVG : label}</span>`,
     iconSize: [32, 32],
     iconAnchor: [16, 16]
   });

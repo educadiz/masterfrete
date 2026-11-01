@@ -120,3 +120,55 @@ test("estimarPreco envia o payload autenticado e extrai predictions[0]", async (
     }
   }
 });
+
+test("estimarDuracao envia os 10 campos exigidos pelo modelo com tipos inteiros", async () => {
+  const { estimarDuracao } = require("../services/modeloDuracao");
+  const fetchOriginal = global.fetch;
+  const tokenOriginal = process.env.DATABRICKS_TOKEN;
+  let corpo;
+  process.env.DATABRICKS_TOKEN = "token-de-teste";
+  global.fetch = async (url, options) => {
+    corpo = JSON.parse(options.body);
+    return new Response(JSON.stringify({ predictions: [12.5] }), { status: 200 });
+  };
+
+  try {
+    // 2018-10-15 (segunda) 14:35 em Brasília
+    const duracao = await estimarDuracao(
+      ORIGEM,
+      DESTINO,
+      4.2,
+      new Date("2018-10-15T14:35:00-03:00")
+    );
+    const { columns, data } = corpo.dataframe_split;
+    const linha = Object.fromEntries(columns.map((c, i) => [c, data[0][i]]));
+
+    assert.equal(duracao, 12.5);
+    assert.deepEqual(columns, [
+      "ano",
+      "mes",
+      "hora",
+      "minuto",
+      "latitude_origem",
+      "longitude_origem",
+      "latitude_destino",
+      "longitude_destino",
+      "distancia_haversine",
+      "dia_semana"
+    ]);
+    assert.equal(linha.ano, 2018);
+    assert.equal(linha.mes, 10);
+    assert.equal(linha.hora, 14);
+    assert.equal(linha.minuto, 35);
+    assert.equal(linha.dia_semana, 2);
+    assert.equal(linha.distancia_haversine, 4.2);
+  } finally {
+    global.fetch = fetchOriginal;
+    if (tokenOriginal === undefined) {
+      delete process.env.DATABRICKS_TOKEN;
+    } else {
+      process.env.DATABRICKS_TOKEN = tokenOriginal;
+    }
+  }
+});
+

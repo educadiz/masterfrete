@@ -24,10 +24,10 @@ app.use((error, request, response, next) => {
   }
 
   response.status(status).json({
-    error: status === 500 ? "Erro interno ao estimar a corrida." : error.message
+    error: status === 500 ? "Erro interno ao estimar o frete." : error.message
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`Bicitaxi disponível em http://localhost:${PORT}`);
+  console.log(`Master Frete disponível em http://localhost:${PORT}`);
 });
