@@ -1,0 +1,18 @@
+{
+  "name": "bicitaxi-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "API local para estimativas de corridas Bicitaxi",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2"
+  }
+}
