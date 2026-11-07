@@ -1,5 +1,5 @@
 const express = require("express");
-const { geocodificar } = require("../services/geolocalizacao");
+const { geocodificar, geocodificarReverso } = require("../services/geolocalizacao");
 const { estimarDuracao } = require("../services/modeloDuracao");
 const { estimarPreco } = require("../services/modeloPreco");
 const {
@@ -12,12 +12,18 @@ const router = express.Router();
 
 router.post("/estimar", async (request, response, next) => {
   try {
-    const { origem, destino } = request.body ?? {};
+    const { origem, destino, localizacao } = request.body ?? {};
     validarEndereco(origem, "origem");
     validarEndereco(destino, "destino");
 
-    const coordenadaOrigem = await geocodificar(origem);
-    const coordenadaDestino = await geocodificar(destino);
+    if (localizacao !== undefined &&
+        (!localizacao || typeof localizacao !== "object" || Array.isArray(localizacao))) {
+      const error = new Error("Informe coordenadas válidas.");
+      error.status = 400;
+      throw error;
+    }
+    const coordenadaOrigem = await resolverLocalizacao(origem, localizacao?.origem, "origem");
+    const coordenadaDestino = await resolverLocalizacao(destino, localizacao?.destino, "destino");
     const distanciaKm = haversineKm(coordenadaOrigem, coordenadaDestino);
     const duracaoMinutos = await estimarDuracao(
       coordenadaOrigem,
@@ -70,6 +76,35 @@ router.post("/estimar", async (request, response, next) => {
     next(error);
   }
 });
+
+router.post("/geocodificacao-reversa", async (request, response, next) => {
+  try {
+    validarCoordenada(request.body, "localização");
+    const endereco = await geocodificarReverso(request.body);
+    response.json({ endereco });
+  } catch (error) {
+    next(error);
+  }
+});
+
+async function resolverLocalizacao(endereco, coordenada, nomeCampo) {
+  if (coordenada === undefined) {
+    return geocodificar(endereco);
+  }
+  validarCoordenada(coordenada, nomeCampo);
+  return { latitude: coordenada.latitude, longitude: coordenada.longitude, displayName: endereco };
+}
+
+function validarCoordenada(coordenada, nomeCampo) {
+  if (!coordenada || typeof coordenada !== "object" || Array.isArray(coordenada) ||
+      !Number.isFinite(coordenada.latitude) || coordenada.latitude < -90 ||
+      coordenada.latitude > 90 || !Number.isFinite(coordenada.longitude) ||
+      coordenada.longitude < -180 || coordenada.longitude > 180) {
+    const error = new Error(`Informe coordenadas válidas para ${nomeCampo}.`);
+    error.status = 400;
+    throw error;
+  }
+}
 
 function validarEndereco(endereco, nomeCampo) {
   if (
