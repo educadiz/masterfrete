@@ -53,7 +53,7 @@
             type="text"
             minlength="3"
             maxlength="200"
-            placeholder="Ex.: Avenida Paulista, São Paulo"
+            placeholder="Ex.: Rua Camboim, Recife"
             autocomplete="street-address"
             required
           >
@@ -65,7 +65,7 @@
             type="text"
             minlength="3"
             maxlength="200"
-            placeholder="Ex.: Parque Ibirapuera, São Paulo"
+            placeholder="Ex.: Avenida Caxangá, Recife"
             autocomplete="off"
             required
           >
@@ -139,5 +139,17 @@
         <button id="cancel-button" type="button" class="secondary">Cancelar</button>
       </div>
     </div>
+
+    <dialog
+      id="error-modal"
+      class="modal error-modal"
+      aria-labelledby="error-title"
+      aria-describedby="error-message"
+    >
+      <div class="error-icon" aria-hidden="true">!</div>
+      <h2 id="error-title">Atenção à consulta</h2>
+      <p id="error-message" class="modal-text"></p>
+      <button id="error-close-button" type="button">Entendi</button>
+    </dialog>
   </body>
 </html>

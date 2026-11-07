@@ -6,7 +6,6 @@ const {
   obterCamposTemporais,
   prepararDadosModeloPreco
 } = require("../config/codificacaoModeloPreco");
-const { estimarPreco } = require("../services/modeloPreco");
 
 const ORIGEM = { latitude: -23.513742609587695, longitude: -46.62327810242303 };
 const DESTINO = {
@@ -82,7 +81,12 @@ test("converte a distância Haversine em km sem arredondar", () => {
   assert.throws(() => converterDistanciaPreco(-1), TypeError);
 });
 
-test("estimarPreco envia o payload autenticado e extrai predictions[0]", async () => {
+for (const [ambiente, caminho] of [
+  ["local", "../services/modeloPreco"],
+  ["Firebase", "../../functions/src/services/modeloPreco"]
+]) {
+test(`estimarPreco (${ambiente}) envia o contrato numérico autenticado`, async () => {
+  const { estimarPreco } = require(caminho);
   const fetchOriginal = global.fetch;
   const tokenOriginal = process.env.DATABRICKS_TOKEN;
   let requisicao;
@@ -104,13 +108,43 @@ test("estimarPreco envia o payload autenticado e extrai predictions[0]", async (
     const corpo = JSON.parse(requisicao.options.body);
 
     assert.equal(preco, 18.5);
-    assert.match(requisicao.url, /serving-endpoints\/knn-price\/invocations$/);
+    assert.equal(
+      requisicao.url,
+      "https://dbc-77c403ba-f198.cloud.databricks.com/serving-endpoints/masterfrete_preco/invocations"
+    );
     assert.equal(requisicao.options.method, "POST");
     assert.equal(
       requisicao.options.headers.Authorization,
       "Bearer token-de-teste"
     );
     assert.deepEqual(corpo.dataframe_split.columns, COLUNAS);
+    assert.deepEqual(corpo.dataframe_split.data, [[
+      15, 2, 10, 14, 2, 4.2,
+      ORIGEM.latitude, ORIGEM.longitude, DESTINO.latitude, DESTINO.longitude
+    ]]);
+    assert.ok(corpo.dataframe_split.data[0].every(Number.isFinite));
+    assert.equal(requisicao.options.headers["Content-Type"], "application/json");
+    const primeiraRequisicao = requisicao;
+    for (const invalido of ["-23.5", null, NaN, Infinity]) {
+      await assert.rejects(
+        estimarPreco({ ...ORIGEM, latitude: invalido }, DESTINO, 4.2),
+        /números finitos/
+      );
+      assert.equal(requisicao, primeiraRequisicao);
+    }
+
+    for (const [body, status] of [
+      [JSON.stringify({ predictions: [-1] }), 200],
+      [JSON.stringify({ predictions: [] }), 200],
+      ["não é JSON", 200],
+      [JSON.stringify({ error: "falha" }), 500]
+    ]) {
+      global.fetch = async () => new Response(body, { status });
+      await assert.rejects(
+        estimarPreco(ORIGEM, DESTINO, 4.2),
+        (error) => error.status === 502
+      );
+    }
   } finally {
     global.fetch = fetchOriginal;
     if (tokenOriginal === undefined) {
@@ -120,55 +154,102 @@ test("estimarPreco envia o payload autenticado e extrai predictions[0]", async (
     }
   }
 });
+}
 
-test("estimarDuracao envia os 10 campos exigidos pelo modelo com tipos inteiros", async () => {
-  const { estimarDuracao } = require("../services/modeloDuracao");
-  const fetchOriginal = global.fetch;
-  const tokenOriginal = process.env.DATABRICKS_TOKEN;
-  let corpo;
-  process.env.DATABRICKS_TOKEN = "token-de-teste";
-  global.fetch = async (url, options) => {
-    corpo = JSON.parse(options.body);
-    return new Response(JSON.stringify({ predictions: [12.5] }), { status: 200 });
-  };
+for (const [ambiente, caminho] of [
+  ["local", "../services/modeloDuracao"],
+  ["Firebase", "../../functions/src/services/modeloDuracao"]
+]) {
+  test(`modelo de duração (${ambiente}) envia o contrato autenticado`, async () => {
+    const { estimarDuracao, obterCamposTemporaisDuracao } = require(caminho);
+    const fetchOriginal = global.fetch;
+    const tokenOriginal = process.env.DATABRICKS_TOKEN;
+    let requisicao;
+    process.env.DATABRICKS_TOKEN = "token-de-teste";
+    global.fetch = async (url, options) => {
+      requisicao = { url, options };
+      return new Response(JSON.stringify({ predictions: [12.5] }), { status: 200 });
+    };
 
-  try {
-    // 2018-10-15 (segunda) 14:35 em Brasília
-    const duracao = await estimarDuracao(
-      ORIGEM,
-      DESTINO,
-      4.2,
-      new Date("2018-10-15T14:35:00-03:00")
-    );
-    const { columns, data } = corpo.dataframe_split;
-    const linha = Object.fromEntries(columns.map((c, i) => [c, data[0][i]]));
+    try {
+      const duracao = await estimarDuracao(
+        ORIGEM,
+        DESTINO,
+        4.207852363586426,
+        new Date("2018-10-15T17:35:00Z")
+      );
 
-    assert.equal(duracao, 12.5);
-    assert.deepEqual(columns, [
-      "ano",
-      "mes",
-      "hora",
-      "minuto",
-      "latitude_origem",
-      "longitude_origem",
-      "latitude_destino",
-      "longitude_destino",
-      "distancia_haversine",
-      "dia_semana"
-    ]);
-    assert.equal(linha.ano, 2018);
-    assert.equal(linha.mes, 10);
-    assert.equal(linha.hora, 14);
-    assert.equal(linha.minuto, 35);
-    assert.equal(linha.dia_semana, 2);
-    assert.equal(linha.distancia_haversine, 4.2);
-  } finally {
-    global.fetch = fetchOriginal;
-    if (tokenOriginal === undefined) {
-      delete process.env.DATABRICKS_TOKEN;
-    } else {
-      process.env.DATABRICKS_TOKEN = tokenOriginal;
+      assert.equal(duracao, 12.5);
+      assert.equal(
+        requisicao.url,
+        "https://dbc-77c403ba-f198.cloud.databricks.com/serving-endpoints/masterfrete_duracao/invocations"
+      );
+      assert.equal(requisicao.options.method, "POST");
+      assert.equal(requisicao.options.headers.Authorization, "Bearer token-de-teste");
+      assert.equal(requisicao.options.headers["Content-Type"], "application/json");
+      assert.deepEqual(JSON.parse(requisicao.options.body), {
+        dataframe_split: {
+          columns: [
+            "hora",
+            "minuto",
+            "distancia_haversine",
+            "latitude_origem",
+            "longitude_origem",
+            "latitude_destino",
+            "longitude_destino"
+          ],
+          data: [[
+            14,
+            35,
+            4.207852363586426,
+            ORIGEM.latitude,
+            ORIGEM.longitude,
+            DESTINO.latitude,
+            DESTINO.longitude
+          ]]
+        }
+      });
+      assert.deepEqual(
+        obterCamposTemporaisDuracao(new Date("2018-10-15T02:05:00Z")),
+        { hora: 23, minuto: 5 }
+      );
+      assert.throws(() => obterCamposTemporaisDuracao(new Date("inválida")), TypeError);
+    } finally {
+      global.fetch = fetchOriginal;
+      if (tokenOriginal === undefined) {
+        delete process.env.DATABRICKS_TOKEN;
+      } else {
+        process.env.DATABRICKS_TOKEN = tokenOriginal;
+      }
     }
-  }
-});
+  });
 
+  test(`modelo de duração (${ambiente}) rejeita falhas e previsões inválidas`, async () => {
+    const { estimarDuracao } = require(caminho);
+    const fetchOriginal = global.fetch;
+    const tokenOriginal = process.env.DATABRICKS_TOKEN;
+    process.env.DATABRICKS_TOKEN = "token-de-teste";
+
+    try {
+      for (const [body, status] of [
+        [JSON.stringify({ predictions: [-1] }), 200],
+        [JSON.stringify({ predictions: [] }), 200],
+        ["não é JSON", 200],
+        [JSON.stringify({ error: "falha" }), 500]
+      ]) {
+        global.fetch = async () => new Response(body, { status });
+        await assert.rejects(
+          estimarDuracao(ORIGEM, DESTINO, 4.2),
+          (error) => error.status === 502
+        );
+      }
+    } finally {
+      global.fetch = fetchOriginal;
+      if (tokenOriginal === undefined) {
+        delete process.env.DATABRICKS_TOKEN;
+      } else {
+        process.env.DATABRICKS_TOKEN = tokenOriginal;
+      }
+    }
+  });
+}

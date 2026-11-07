@@ -21,6 +21,20 @@ Haversine e consulta o modelo de duração. O endpoint do modelo de preço está
 integrado e usa as codificações confirmadas para o treinamento (ver
 "Codificações do Modelo 2").
 
+O modelo de duração `masterfrete_duracao` recebe `dataframe_split` com as
+colunas, nesta ordem: `hora`, `minuto`, `distancia_haversine`,
+`latitude_origem`, `longitude_origem`, `latitude_destino` e
+`longitude_destino`. A hora e o minuto usam o fuso `America/Sao_Paulo` e a
+distância Haversine é enviada em quilômetros, sem arredondamento. A aplicação
+interpreta a previsão retornada em `predictions[0]` como minutos.
+
+O modelo de preço `masterfrete_preco` recebe `dataframe_split` com valores
+numéricos finitos, nesta ordem: `dia`, `dia_semana`, `mes`, `hora`, `periodo`,
+`distancia`, `latitude_origem`, `longitude_origem`, `latitude_destino` e
+`longitude_destino`. A previsão em `predictions[0]` é apresentada em reais.
+As codificações e unidades existentes são mantidas; confirme que também
+correspondem ao treinamento do novo modelo antes de usar as previsões.
+
 ## Requisitos
 
 - Node.js 20 ou superior.
@@ -85,6 +99,7 @@ Na pasta `backend`, execute:
 npm test
 ```
 
-Os testes locais verificam o cálculo de distância, a preparação do payload do
-preço (codificações e fuso), a requisição autenticada e a resposta da API. A
-validação real dos endpoints requer um token válido e acesso de rede.
+Os testes locais verificam o cálculo de distância, os contratos dos modelos de
+duração e preço, a requisição autenticada e a resposta da API. Os contratos de
+duração e preço são testados nas implementações local e Firebase. A validação
+real dos endpoints requer um token válido e acesso de rede.

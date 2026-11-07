@@ -1,14 +1,10 @@
 const { DURATION_ENDPOINT, getToken } = require("../config/databricks");
-const {
-  FUSO_HORARIO,
-  MAPEAMENTO_DIAS_SEMANA
-} = require("../config/codificacaoModeloPreco");
+const { FUSO_HORARIO } = require("../config/codificacaoModeloPreco");
 const {
   registrarRequisicaoModelo,
   registrarRespostaModelo
 } = require("../utils/depuracao");
 
-// dia_semana segue a codificação confirmada: Domingo = 1 ... Sábado = 7.
 function obterCamposTemporaisDuracao(dataHora) {
   if (!(dataHora instanceof Date) || Number.isNaN(dataHora.getTime())) {
     throw new TypeError("A data/hora da solicitação é inválida.");
@@ -17,9 +13,6 @@ function obterCamposTemporaisDuracao(dataHora) {
   const valores = Object.fromEntries(
     new Intl.DateTimeFormat("en-US", {
       timeZone: FUSO_HORARIO,
-      weekday: "long",
-      year: "numeric",
-      month: "numeric",
       hour: "numeric",
       minute: "numeric",
       hourCycle: "h23"
@@ -29,11 +22,8 @@ function obterCamposTemporaisDuracao(dataHora) {
   );
 
   return {
-    ano: Number(valores.year),
-    mes: Number(valores.month),
     hora: Number(valores.hour),
-    minuto: Number(valores.minute),
-    dia_semana: MAPEAMENTO_DIAS_SEMANA[valores.weekday]
+    minuto: Number(valores.minute)
   };
 }
 
@@ -47,29 +37,23 @@ async function estimarDuracao(
   const payload = {
     dataframe_split: {
       columns: [
-        "ano",
-        "mes",
         "hora",
         "minuto",
+        "distancia_haversine",
         "latitude_origem",
         "longitude_origem",
         "latitude_destino",
-        "longitude_destino",
-        "distancia_haversine",
-        "dia_semana"
+        "longitude_destino"
       ],
       data: [
         [
-          temporal.ano,
-          temporal.mes,
           temporal.hora,
           temporal.minuto,
+          distanceKm,
           origin.latitude,
           origin.longitude,
           destination.latitude,
-          destination.longitude,
-          distanceKm,
-          temporal.dia_semana
+          destination.longitude
         ]
       ]
     }

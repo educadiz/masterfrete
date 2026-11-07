@@ -126,6 +126,22 @@ function prepararDadosModeloPreco(
 ) {
   const temporal = obterCamposTemporais(dataHora);
   const distancia = converterDistanciaPreco(distanciaHaversineKm);
+  const dados = [
+    temporal.dia,
+    temporal.dia_semana,
+    temporal.mes,
+    temporal.hora,
+    temporal.periodo,
+    distancia,
+    origin.latitude,
+    origin.longitude,
+    destination.latitude,
+    destination.longitude
+  ];
+
+  if (!dados.every(Number.isFinite)) {
+    throw new TypeError("Os dados para o modelo de preço devem ser números finitos.");
+  }
 
   return {
     dataframe_split: {
@@ -141,20 +157,7 @@ function prepararDadosModeloPreco(
         "latitude_destino",
         "longitude_destino"
       ],
-      data: [
-        [
-          temporal.dia,
-          temporal.dia_semana,
-          temporal.mes,
-          temporal.hora,
-          temporal.periodo,
-          distancia,
-          origin.latitude,
-          origin.longitude,
-          destination.latitude,
-          destination.longitude
-        ]
-      ]
+      data: [dados]
     }
   };
 }
