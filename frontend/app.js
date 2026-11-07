@@ -8,10 +8,28 @@ const durationResult = document.querySelector("#duration-result");
 const priceResult = document.querySelector("#price-result");
 const priceNote = document.querySelector("#price-note");
 const mapStatus = document.querySelector("#map-status");
+const inputs = {
+  origem: document.querySelector("#origin"),
+  destino: document.querySelector("#destination")
+};
 let map;
 let routeLayer;
+let routeLine;
+let markers = {};
+let locations = {};
+let requestVersion = 0;
+const reverseRequests = {};
+const reverseWarnings = {};
 
 form.addEventListener("reset", () => {
+  invalidateRequest();
+  for (const side of ["origem", "destino"]) {
+    cancelReverse(side);
+    delete reverseWarnings[side];
+  }
+  locations = {};
+  markers = {};
+  routeLine = undefined;
   results.hidden = true;
   statusMessage.textContent = "";
   mapStatus.textContent = "";
@@ -19,8 +37,22 @@ form.addEventListener("reset", () => {
   if (routeLayer) {
     routeLayer.clearLayers();
   }
-  document.querySelector("#origin").focus();
+  inputs.origem.focus();
 });
+
+for (const side of ["origem", "destino"]) {
+  inputs[side].addEventListener("input", () => {
+    delete locations[side];
+    cancelReverse(side);
+    delete reverseWarnings[side];
+    updateMapStatus();
+    invalidateRequest();
+    if (!results.hidden) {
+      clearEstimate();
+      statusMessage.textContent = "Endereço alterado. Clique em Estimar frete para atualizar.";
+    }
+  });
+}
 
 const loadingModal = document.querySelector("#loading-modal");
 const loadingText = document.querySelector("#loading-text");
@@ -36,6 +68,23 @@ const STEP_MESSAGES = [
 ];
 let stepTimer;
 let currentRequest;
+
+function invalidateRequest() {
+  requestVersion += 1;
+  if (currentRequest) {
+    currentRequest.abort();
+    currentRequest = undefined;
+  }
+  hideLoading();
+  submitButton.disabled = false;
+}
+
+function cancelReverse(side) {
+  if (reverseRequests[side]) {
+    reverseRequests[side].abort();
+    delete reverseRequests[side];
+  }
+}
 
 // As etapas são indicativas: avançam por tempo, não por eventos do servidor.
 function showLoading() {
@@ -89,24 +138,42 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
-form.addEventListener("submit", async (event) => {
+form.addEventListener("submit", (event) => {
   event.preventDefault();
+  estimateRide(false);
+});
+
+async function estimateRide(fromDrag) {
+  if (!form.reportValidity()) {
+    statusMessage.textContent = "Informe origem e destino válidos para atualizar a estimativa.";
+    return;
+  }
+  invalidateRequest();
+  const version = requestVersion;
+  const controller = new AbortController();
+  currentRequest = controller;
   statusMessage.textContent = "";
-  results.hidden = true;
-  submitButton.disabled = true;
-  currentRequest = new AbortController();
-  showLoading();
+  if (fromDrag) {
+    clearEstimate();
+    statusMessage.textContent = "Atualizando a estimativa do frete...";
+  } else {
+    results.hidden = true;
+    submitButton.disabled = true;
+    showLoading();
+  }
   let popupMessage;
 
   const formData = new FormData(form);
+  const requestedLocations = { ...locations };
   try {
     const response = await fetch("/api/corrida/estimar", {
       method: "POST",
-      signal: currentRequest.signal,
+      signal: controller.signal,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         origem: formData.get("origem"),
-        destino: formData.get("destino")
+        destino: formData.get("destino"),
+        localizacao: requestedLocations
       })
     });
 
@@ -123,9 +190,18 @@ form.addEventListener("submit", async (event) => {
       throw new Error(body.error || "Não foi possível estimar o frete.");
     }
 
+    if (version !== requestVersion) return;
+    locations = body.localizacao;
+    for (const side of ["origem", "destino"]) {
+      if (!requestedLocations[side]) {
+        body[side] = body[side] || inputs[side].value;
+      } else {
+        body[side] = inputs[side].value;
+      }
+    }
     routeSummary.textContent = `${body.origem} → ${body.destino}`;
     results.hidden = false;
-    renderMap(body);
+    renderMap(body, !fromDrag);
     distanceResult.textContent = `${body.distanciaKm.toFixed(2)} km`;
     durationResult.textContent = formatDuration(body.duracao_estimada_minutos);
     priceResult.textContent =
@@ -143,26 +219,85 @@ form.addEventListener("submit", async (event) => {
     }
     statusMessage.textContent = "";
   } catch (error) {
+    if (version !== requestVersion) return;
     if (error.name === "AbortError") {
       statusMessage.textContent = "Consulta cancelada.";
+    } else if (fromDrag) {
+      statusMessage.textContent = error instanceof TypeError
+        ? "Não foi possível atualizar a estimativa. Verifique sua conexão e tente novamente."
+        : error.message || "Não foi possível atualizar a estimativa. Tente novamente.";
     } else {
       popupMessage = error instanceof TypeError
         ? "Não foi possível concluir a consulta. Verifique sua conexão e tente novamente."
         : error.message || "Não foi possível concluir a consulta. Tente novamente.";
     }
   } finally {
-    hideLoading();
-    currentRequest = undefined;
-    submitButton.disabled = false;
-    if (popupMessage) {
-      errorMessage.textContent = popupMessage;
-      errorModal.showModal();
-      errorCloseButton.focus();
-    } else {
-      submitButton.focus();
+    if (version === requestVersion) {
+      hideLoading();
+      currentRequest = undefined;
+      submitButton.disabled = false;
+      if (popupMessage) {
+        errorMessage.textContent = popupMessage;
+        errorModal.showModal();
+        errorCloseButton.focus();
+      } else if (!fromDrag) {
+        submitButton.focus();
+      }
     }
   }
-});
+}
+
+function clearEstimate() {
+  distanceResult.textContent = "Aguardando atualização";
+  durationResult.textContent = "Aguardando atualização";
+  priceResult.textContent = "Aguardando atualização";
+  priceNote.hidden = true;
+}
+
+function updateMapStatus() {
+  mapStatus.textContent = Object.values(reverseWarnings).join(" ");
+}
+
+async function reverseGeocode(side, coordinate) {
+  cancelReverse(side);
+  const controller = new AbortController();
+  reverseRequests[side] = controller;
+  delete reverseWarnings[side];
+  updateMapStatus();
+  try {
+    const response = await fetch("/api/corrida/geocodificacao-reversa", {
+      method: "POST",
+      signal: controller.signal,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(coordinate)
+    });
+    const body = await response.json();
+    if (!response.ok || typeof body.endereco !== "string" || body.endereco.trim().length < 3) {
+      throw new Error(body.error || "Endereço não encontrado.");
+    }
+    if (reverseRequests[side] !== controller) return;
+    inputs[side].value = body.endereco.trim().slice(0, 200);
+    updateMapLabels();
+  } catch (error) {
+    if (error.name !== "AbortError" && reverseRequests[side] === controller) {
+      reverseWarnings[side] =
+        `Não foi possível identificar o endereço de ${side}; as coordenadas serão usadas.`;
+      updateMapStatus();
+    }
+  } finally {
+    if (reverseRequests[side] === controller) delete reverseRequests[side];
+  }
+}
+
+function updateMapLabels() {
+  routeSummary.textContent = `${inputs.origem.value} → ${inputs.destino.value}`;
+  for (const side of ["origem", "destino"]) {
+    if (markers[side]) {
+      const label = side === "origem" ? "Origem" : "Destino";
+      markers[side].setPopupContent(`<strong>${label}</strong><br>${escapeHtml(inputs[side].value)}`);
+    }
+  }
+}
 
 // Converte minutos (ex.: 72.4) para hh:mm h (ex.: 01:12 h), arredondando ao minuto.
 function formatDuration(totalMinutes) {
@@ -176,7 +311,7 @@ function formatDuration(totalMinutes) {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")} h`;
 }
 
-function renderMap(ride) {
+function renderMap(ride, fitBounds = true) {
   const locations = ride.localizacao;
   if (
     !locations ||
@@ -213,24 +348,67 @@ function renderMap(ride) {
     locations.destino.longitude < locations.origem.longitude
   );
   const destinationIcon = createMapIcon("D", "destino");
-  window.L.marker(origin)
+  markers.origem = window.L.marker(origin, { draggable: true, title: "Origem" })
     .setIcon(originIcon)
     .bindPopup(`<strong>Origem</strong><br>${escapeHtml(ride.origem)}`)
     .addTo(routeLayer);
-  window.L.marker(destination)
+  markers.destino = window.L.marker(destination, { draggable: true, title: "Destino" })
     .setIcon(destinationIcon)
     .bindPopup(`<strong>Destino</strong><br>${escapeHtml(ride.destino)}`)
     .addTo(routeLayer);
-  window.L.polyline([origin, destination], {
+  routeLine = window.L.polyline([origin, destination], {
     color: "#1e5fb4",
     weight: 4,
     opacity: 0.8,
     dashArray: "8 8"
   }).addTo(routeLayer);
 
+  for (const side of ["origem", "destino"]) {
+    preventMapTouch(markers[side]);
+    markers[side].on("dragstart", () => {
+      invalidateRequest();
+      cancelReverse(side);
+      clearEstimate();
+      statusMessage.textContent = "Solte o marcador para atualizar a estimativa.";
+    });
+    markers[side].on("drag", () => {
+      routeLine.setLatLngs([markers.origem.getLatLng(), markers.destino.getLatLng()]);
+    });
+    markers[side].on("dragend", () => {
+      const point = markers[side].getLatLng().wrap();
+      markers[side].setLatLng(point);
+      locations[side] = { latitude: point.lat, longitude: point.lng };
+      routeLine.setLatLngs([markers.origem.getLatLng(), markers.destino.getLatLng()]);
+      inputs[side].value = `${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}`;
+      updateMapLabels();
+      reverseGeocode(side, locations[side]);
+      estimateRide(true);
+    });
+  }
+
   map.invalidateSize();
-  map.fitBounds(routeLayer.getBounds(), { padding: [28, 28], maxZoom: 15 });
-  mapStatus.textContent = "";
+  if (fitBounds) {
+    const fitOptions = window.matchMedia("(pointer: coarse)").matches
+      ? { paddingTopLeft: [80, 95], paddingBottomRight: [36, 36], maxZoom: 15 }
+      : { padding: [28, 28], maxZoom: 15 };
+    map.fitBounds(routeLayer.getBounds(), fitOptions);
+  }
+  updateMapStatus();
+}
+
+function preventMapTouch(marker) {
+  const attach = () => {
+    window.L.DomEvent.on(marker.getElement(), "touchstart", (event) => {
+      if (event.touches.length === 1) {
+        window.L.DomEvent.stopPropagation(event);
+      }
+    });
+  };
+  if (marker.getElement()) {
+    attach();
+  } else {
+    marker.once("add", attach);
+  }
 }
 
 const TRUCK_SVG =

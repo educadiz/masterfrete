@@ -1,5 +1,7 @@
 const NOMINATIM_SEARCH_URL =
   "https://nominatim.openstreetmap.org/search";
+const NOMINATIM_REVERSE_URL =
+  "https://nominatim.openstreetmap.org/reverse";
 const USER_AGENT = "MasterFrete/1.0 (local freight estimation app)";
 const CACHE_LIMIT = 500;
 const geocodeCache = new Map();
@@ -7,13 +9,42 @@ const geocodeCache = new Map();
 let requestQueue = Promise.resolve();
 let nextRequestAt = 0;
 
+async function geocodificarReverso(coordenada) {
+  return enfileirarRequisicao(async () => {
+    const url = new URL(NOMINATIM_REVERSE_URL);
+    url.searchParams.set("lat", coordenada.latitude);
+    url.searchParams.set("lon", coordenada.longitude);
+    url.searchParams.set("format", "jsonv2");
+    const response = await fetch(url, {
+      headers: {
+        "User-Agent": USER_AGENT,
+        "Accept-Language": "pt-BR,pt;q=0.9"
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) {
+      const error = new Error(
+        `O serviço de geocodificação respondeu com HTTP ${response.status}.`
+      );
+      error.status = 502;
+      throw error;
+    }
+    const resultado = await response.json();
+    if (typeof resultado.display_name !== "string" || !resultado.display_name.trim()) {
+      const error = new Error("Não foi possível identificar o endereço das coordenadas.");
+      error.status = 422;
+      throw error;
+    }
+    return resultado.display_name;
+  });
+}
+
 async function geocodificar(endereco) {
   const chave = endereco.trim().toLocaleLowerCase("pt-BR");
   const cached = geocodeCache.get(chave);
   if (cached) {
     return cached;
   }
-
   const coordenadas = await enfileirarRequisicao(async () => {
     const url = new URL(NOMINATIM_SEARCH_URL);
     url.searchParams.set("q", endereco);
@@ -89,4 +120,4 @@ async function enfileirarRequisicao(requisicao) {
   }
 }
 
-module.exports = { geocodificar };
+module.exports = { geocodificar, geocodificarReverso };

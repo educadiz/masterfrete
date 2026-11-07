@@ -396,6 +396,21 @@ body.modal-open {
   background: transparent;
 }
 
+@media (pointer: coarse) {
+  .map-marker-icon {
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .map-marker-icon::before {
+    position: absolute;
+    inset: -8px;
+    content: "";
+  }
+}
+
 .map-marker-icon span {
   display: grid;
   width: 32px;

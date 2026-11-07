@@ -73,6 +73,19 @@ serviços separados, ambos dependentes de conexão com a internet e sujeitos às
 políticas de uso dos respectivos provedores. Para uso intenso ou em produção,
 use provedores de mapa e geocodificação apropriados ao volume de tráfego.
 
+Após estimar pelos endereços, arraste o marcador de origem ou destino para
+recalcular a distância e as previsões com as coordenadas exatas selecionadas.
+A linha no mapa continua sendo apenas ilustrativa, não uma rota viária. O
+Nominatim tenta identificar o endereço do ponto; se falhar, as coordenadas
+continuam visíveis e são usadas para a estimativa. Para voltar a selecionar
+uma localização por endereço, edite o campo e clique em **Estimar frete**.
+
+O endpoint existente `/api/corrida/estimar` também aceita `localizacao`
+opcional com `origem` e/ou `destino`, cada um com `latitude` e `longitude`
+numéricas. Pontos omitidos continuam sendo geocodificados pelo endereço.
+`/api/corrida/geocodificacao-reversa` recebe uma coordenada e retorna
+`endereco`; a falha dessa consulta não impede o cálculo pelas coordenadas.
+
 ## Codificações do Modelo 2
 
 O módulo `backend/config/codificacaoModeloPreco.js` centraliza os mapeamentos
@@ -99,7 +112,8 @@ Na pasta `backend`, execute:
 npm test
 ```
 
-Os testes locais verificam o cálculo de distância, os contratos dos modelos de
+Os testes locais verificam o cálculo de distância, a seleção por coordenadas,
+a geocodificação reversa, os contratos dos modelos de
 duração e preço, a requisição autenticada e a resposta da API. Os contratos de
 duração e preço são testados nas implementações local e Firebase. A validação
 real dos endpoints requer um token válido e acesso de rede.
