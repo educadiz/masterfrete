@@ -1,3 +1,7 @@
-backend/.env
+# Local environment files may contain credentials. Keep sanitized templates.
+.env
+.env.*
+!.env.example
+
 backend/node_modules/
 npm-debug.log*
