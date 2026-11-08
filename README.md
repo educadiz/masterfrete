@@ -9,6 +9,9 @@ Databricks.
 
 **Aplicação:** [https://masterfrete-c4a5d.web.app/](https://masterfrete-c4a5d.web.app/)
 
+<img width="573" height="556" alt="image" src="https://github.com/user-attachments/assets/b5b17d26-4118-4906-9590-951923294eb9" />
+
+
 ## Tecnologias
 
 - **Frontend:** HTML, CSS, JavaScript e Leaflet.
